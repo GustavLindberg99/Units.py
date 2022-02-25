@@ -366,31 +366,34 @@ class Unit:
             toReturn = toReturn.replace('/', _unicode("RIGHT RAISED OMISSION BRACKET"))
             return toReturn
         
-        if(this.isPlanckUnit()):
-            toReturn = ""
-            if(this._kilograms == 1):
-                toReturn += "m{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-            elif(this._kilograms != 0):
-                toReturn += "m{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._kilograms))
-            if(this._meters == 1):
-                toReturn += "l{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-            elif(this._meters != 0):
-                toReturn += "l{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._meters))
-            if(this._seconds - this._amperes == 1):
-                toReturn += "t{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-            elif(this._seconds - this._amperes != 0):
-                toReturn += "t{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._seconds - this._amperes))
-            if(this._amperes == 1):
-                toReturn += "q{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-            elif(this._amperes != 0):
-                toReturn += "q{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._amperes))
-            if(this._kelvins == 1):
-                toReturn += "T{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-            elif(this._kelvins != 0):
-                toReturn += "T{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._kelvins))
-            if(this._moles != 0 and toReturn == ""):
-                return "1"
-            return toReturn[:-1]
+        try:
+            if(this.isPlanckUnit()):
+                toReturn = ""
+                if(this._kilograms == 1):
+                    toReturn += "m{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
+                elif(this._kilograms != 0):
+                    toReturn += "m{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._kilograms))
+                if(this._meters == 1):
+                    toReturn += "l{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
+                elif(this._meters != 0):
+                    toReturn += "l{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._meters))
+                if(this._seconds - this._amperes == 1):
+                    toReturn += "t{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
+                elif(this._seconds - this._amperes != 0):
+                    toReturn += "t{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._seconds - this._amperes))
+                if(this._amperes == 1):
+                    toReturn += "q{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
+                elif(this._amperes != 0):
+                    toReturn += "q{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._amperes))
+                if(this._kelvins == 1):
+                    toReturn += "T{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
+                elif(this._kelvins != 0):
+                    toReturn += "T{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._kelvins))
+                if(this._moles != 0 and toReturn == ""):
+                    return "1"
+                return toReturn[:-1]
+        except OverflowError:
+            pass
             
         if(this in unitToString.keys()):
             return unitToString[this]
