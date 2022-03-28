@@ -447,7 +447,7 @@ class Unit:
         elif(this._moles != 0):
             toReturn += "mol" + toSuperscript(this._moles) + "·"
         return toReturn[:-1]
-    
+
 class Quantity:
     def __init__(this, number=1.0, unit=Unit()):
         this._unit = Unit(unit)
@@ -546,6 +546,8 @@ class Quantity:
         return this
         
     def __add__(this, other):
+        if(isinstance(other, str)):
+            raise TypeError("can only concatenate str (not \"Quantity\") to str")
         try:
             iter(other)
             return [o + this for o in other]
@@ -819,6 +821,7 @@ nC = Unit(1e-9 * C)
 pC = Unit(1e-12 * C)
 fC = Unit(1e-15 * C)
 
+i = 1j
 kB = boltzmannConstant = Quantity(1.380649e-23, J / K)
 e = elementaryCharge = Quantity(1.602176634e-19, C)
 G = gravitationalConstant = Quantity(6.67430e-11, m**3 * kg**-1 * s**-2)
