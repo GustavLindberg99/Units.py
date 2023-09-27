@@ -71,9 +71,9 @@ Units.py also provides a `dimensionless` unit in order to represent [dimensionle
 For angles, there is also a `radians` unit, which is simply an alias of `dimensionless`, and a `degrees` unit, where `1 * up.degrees` is equal to `pi / 180 * up.radians`. That way, you can easily specify angles in degrees, and for example pass that as an argument to trigonometric functions like `numpy.sin`, for example
 
 ```
-import units
-import numpy
-print(numpy.sin(90 * up.degree))    #Result: 1.0
+import unitspy as up
+import numpy as np
+print(np.sin(float(90 * up.degree)))    #Result: 1.0
 ```
 
 There is also `up.arcmin` and `up.arcsec`, representing arcminutes and arcseconds respectively.
