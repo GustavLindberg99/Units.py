@@ -2,34 +2,38 @@
 Units.py is a Python library that makes it easy to work with units in physics without having to worry about unit conversions. For example, if you have an energy in electronvolts and you have the value of Planck's constant in Joules times seconds, normally you would have to convert one of those values to match the units of the other one. But with units.py, you don't have to do that. You can easily multiply two values in different units and get the correct result.
 
 # Setup
-To start using units.py, download [this file](https://raw.githubusercontent.com/Gustav-Lindberg/Units.py/main/units.py) and save it in the same folder as your Python code. Then add this line to the beginning of your Python code:
+Units.py can be installed using pip:
 
 ```
-import units
+pip install unitspy
 ```
 
-If you want it to be available for all projects, you can also save the file in the folder containing Python libraries. On Windows with Anaconda 3 this is `C:\ProgramData\Anaconda3\Lib`, and on Linux with Python 3.8 this is `/usr/lib/python3.8`.
+You can then import it into your Python script:
+
+```
+import unitspy as up
+```
 
 # Usage
 ## Introduction
 Units.py creates a `Quantity` class. A `Quantity` object represents a physical quantitiy, for example a length, a time or a mass. To create a `Quantity` object, simply multiply a number by a unit provided by units.py. For example, to create a quantity representing 3 meters, do this:
 
 ```
-threeMeters = 3 * units.m
+threeMeters = 3 * up.m
 ```
 
 You can multiply and divide `Quantity` objects just like numbers, and you can add, subtract and compare two `Quantity` objects as long as they have compatible units (for example seconds and days are compatible units as they're both units of time, seconds and meters are not as they measure different things). Example:
 
 ```
-myLength = 10 * units.m
-myTime = 5 * units.s
+myLength = 10 * up.m
+myTime = 5 * up.s
 print(myLength / myTime)    #Result: 2m/s
 ```
 
 ## Units
 Most units are available, and their names are often their SI abbreviations. Here is a list of the most common units:
 
-Units.py name (should be preceded by `units.`) | Unit
+Units.py name | Unit
 --- | ---
 `g` | [Gram](https://en.wikipedia.org/wiki/Gram)
 `kg` | [Kilogram](https://en.wikipedia.org/wiki/Kilogram)
@@ -64,29 +68,29 @@ You can also multiply, divide and take the power of units. For example, you can 
 ### Angles and dimensionless quantities
 Units.py also provides a `dimensionless` unit in order to represent [dimensionless quantities](https://en.wikipedia.org/wiki/Dimensionless_quantity). A `Quantity` object with the `dimensionless` unit is meant to work exactly like an object of Python's built-in `float` type.
 
-For angles, there is also a `radians` unit, which is simply an alias of `dimensionless`, and a `degrees` unit, where `1 * units.degrees` is equal to `pi / 180 * units.radians`. That way, you can easily specify angles in degrees, and for example pass that as an argument to trigonometric functions like `numpy.sin`, for example
+For angles, there is also a `radians` unit, which is simply an alias of `dimensionless`, and a `degrees` unit, where `1 * up.degrees` is equal to `pi / 180 * up.radians`. That way, you can easily specify angles in degrees, and for example pass that as an argument to trigonometric functions like `numpy.sin`, for example
 
 ```
 import units
 import numpy
-print(numpy.sin(90 * units.degree))    #Result: 1.0
+print(numpy.sin(90 * up.degree))    #Result: 1.0
 ```
 
-There is also `units.arcmin` and `units.arcsec`, representing arcminutes and arcseconds respectively.
+There is also `up.arcmin` and `up.arcsec`, representing arcminutes and arcseconds respectively.
 
 ### Temperatures
 Units.py stores temperatures in Kelvins, and can't store temperatures in Celsius. However, it defines `Quantity` object named `zeroCelsius` equal to the value of 0 Celsius in Kelvin, which can be used to convert between Kelvin and Celsius. If you have a temperature in Celsius, add `zeroCelsius` to get the temperature in Kelvin, and if you have a temperature in Kelvin, subtract `zeroCelsius` to get the temperature in Celsius. Example:
 
 ```
-temperatureInCelsius = 15 * units.K    #Define this quantity in Kelvin even though it really represents a unit in Celsius
-temperatureInKelvin = temperatureInCelsius + units.zeroCelsius
+temperatureInCelsius = 15 * up.K    #Define this quantity in Kelvin even though it really represents a unit in Celsius
+temperatureInKelvin = temperatureInCelsius + up.zeroCelsius
 print(temperatureInKelvin)    #Result: 288.15K
 ```
 
 ## Physical quantities
 Units.py also provides pre-defined `Quantity` objects corresponding to physical constants. These are some common ones:
 
-Units.py name (should be preceded by `units.`) | Quantity
+Units.py name (should be preceded by `up.`) | Quantity
 --- | ---
 `kB` | [Boltzmann constant](https://en.wikipedia.org/wiki/Boltzmann_constant)
 `e` | [Elementary charge](https://en.wikipedia.org/wiki/Elementary_charge)
@@ -106,14 +110,14 @@ Units.py name (should be preceded by `units.`) | Quantity
 If you want to output the value of a `Quantity` object in a specific unit, you will need the `toUnit` method. This method takes one argument, which is the unit in which you want to output the quantity. For example, here is how you output the value of one light year in meters:
 
 ```
-myDistance = 1 * units.ly
-print(myDistance.toUnit(units.m))    #Result: 9460500000000000.0m
+myDistance = 1 * up.ly
+print(myDistance.toUnit(up.m))    #Result: 9460500000000000.0m
 ```
 
 `Quantity` objects also have a `toSiUnits` method which converts it to [SI units](https://en.wikipedia.org/wiki/International_System_of_Units) and a `toPlanckUnits` method which converts it to [Planck units](https://en.wikipedia.org/wiki/Planck_units). These methods take no arguments. Example:
 
 ```
-myDistance = 1 * units.ly
+myDistance = 1 * up.ly
 print(myDistance.toSiUnits())    #Result: 9460500000000000.0m
 print(myDistance.toPlanckUnits())    #Result: 5.853346072890479e+50lₚ
 ```
