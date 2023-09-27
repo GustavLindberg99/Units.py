@@ -1,47 +1,56 @@
 # -*- coding: utf-8 -*-
-# units.py by Gustav Lindberg
-# https://github.com/Gustav-Lindberg/Units.py
+# units.py version 2.0.0 by Gustav Lindberg
+# https://github.com/GustavLindberg99/Units.py
+# https://pypi.org/project/unitspy/
 
-from fractions import Fraction as _Fraction
-from unicodedata import lookup as _unicode
-from numpy.core.numeric import isclose as _isclose
-from numpy import pi
-from numpy import exp as _exp, log as _log, log10 as _log10
-from numpy import sin as _sin, cos as _cos, tan as _tan
-from numpy import arcsin as _arcsin, arccos as _arccos, arctan as _arctan
+from __future__ import annotations
+from fractions import Fraction
+from math import isclose as _real_isclose
+from math import pi
+from typeguard import typechecked
 import re as _re
 
+def _isclose(a: complex, b: complex) -> bool:
+    return _real_isclose(a.real, b.real) and _real_isclose(a.imag, b.imag)
+
+#Otherwise it will cause errors when using Quantity as type hints in Unit
+class Quantity:
+    pass
+
+@typechecked
 class Unit:
-    def __init__(this, other=None):
-        try:
-            if(isinstance(other, Quantity)):
-                this._kilograms = other._unit._kilograms
-                this._meters = other._unit._meters
-                this._seconds = other._unit._seconds
-                this._amperes = other._unit._amperes
-                this._kelvins = other._unit._kelvins
-                this._moles = other._unit._moles
-                this._multiple = other._number * other._unit._multiple
-                return
-        except NameError:
-            pass
-        
-        if(isinstance(other, int) or isinstance(other, float) or isinstance(other, complex)):
-            multiple = other
-            other = None
-        elif(other == None):
-            multiple = 1.0
-        
-        if(other != None and not(isinstance(other, Unit))):
-            raise TypeError("Cannot convert {} to unit".format(type(other)))
-            
-        this._kilograms = 0 if other == None else other._kilograms
-        this._meters = 0 if other == None else other._meters
-        this._seconds = 0 if other == None else other._seconds
-        this._amperes = 0 if other == None else other._amperes
-        this._kelvins = 0 if other == None else other._kelvins
-        this._moles = 0 if other == None else other._moles
-        this._multiple = multiple if other == None else other._multiple
+    _kilograms: int | Fraction
+    _meters: int | Fraction
+    _seconds: int | Fraction
+    _amperes: int | Fraction
+    _kelvins: int | Fraction
+    _moles: int | Fraction
+    _multiple: float
+    
+    def __init__(this, other: Unit | Quantity | float | None = None):
+        if isinstance(other, Unit):
+            this._kilograms = other._kilograms
+            this._meters = other._meters
+            this._seconds = other._seconds
+            this._amperes = other._amperes
+            this._kelvins = other._kelvins
+            this._moles = other._moles
+            m = other._multiple
+            this._multiple = m
+        elif isinstance(other, Quantity):
+            this.__init__(other._unit)
+            this._multiple *= other._number
+        else:
+            this._kilograms = 0
+            this._meters = 0
+            this._seconds = 0
+            this._amperes = 0
+            this._kelvins = 0
+            this._moles = 0
+            if other == None:
+                this._multiple = 1
+            else:
+                this._multiple = other
         
     def __copy__(this):
         return Unit(this)
@@ -50,78 +59,68 @@ class Unit:
         return Unit(this)
         
         
-    def __imul__(this, other):
-        if(isinstance(other, Unit) or isinstance(other, Quantity)):
-            o = Unit(other)
-            this._kilograms += o._kilograms
-            this._meters += o._meters
-            this._seconds += o._seconds
-            this._amperes += o._amperes
-            this._kelvins += o._kelvins
-            this._moles += o._moles
-            this._multiple *= o._multiple
+    def __imul__(this, other: Unit | Quantity | float) -> Unit:
+        if isinstance(other, Quantity):
+            other = Unit(other)
+        if isinstance(other, Unit):
+            this._kilograms += other._kilograms
+            this._meters += other._meters
+            this._seconds += other._seconds
+            this._amperes += other._amperes
+            this._kelvins += other._kelvins
+            this._moles += other._moles
+            this._multiple *= other._multiple
         else:
-            this._multiple *= float(other)
+            this._multiple *= other
         return this
             
             
-    def __mul__(this, other):
-        try:
-            iter(other)
-            return [o * this for o in other]
-        except Exception:
-            pass
-        toReturn = Unit(this)
-        toReturn *= other
-        if(isinstance(other, Unit)):
-            return toReturn
-        elif(isinstance(other, Quantity)):
-            return Quantity(1, toReturn).toUnit(this * other._unit)
+    def __mul__(this, other: Unit | Quantity | complex) -> Unit | Quantity:
+        result: Quantity = Quantity(this)
+        result *= other
+        if isinstance(other, Unit):
+            return Unit(result)
+        elif isinstance(other, Quantity):
+            return result.toUnit(this * other._unit)
         else:
-            return Quantity(1, toReturn).toUnit(this)
+            return result.toUnit(this)
     
-    def __rmul__(this, other):
+    def __rmul__(this, other: Unit | Quantity | complex) -> Unit | Quantity:
         return this * other
     
     
-    def __ipow__(this, other):
-        o = _Fraction(other)
-        this._kilograms *= o
-        this._meters *= o
-        this._seconds *= o
-        this._amperes *= o
-        this._kelvins *= o
-        this._moles *= o
+    def __ipow__(this, other: float | Fraction) -> Unit:
+        other = Fraction(other)
+        this._kilograms *= other
+        this._meters *= other
+        this._seconds *= other
+        this._amperes *= other
+        this._kelvins *= other
+        this._moles *= other
     
-        this._multiple **= o
+        this._multiple = float(this._multiple ** other)
         return this
         
         
-    def __pow__(this, other):
-        toReturn = Unit(this)
-        toReturn **= other
-        return toReturn
+    def __pow__(this, other: float | Fraction) -> Unit:
+        result: Unit = Unit(this)
+        result **= other
+        return result
     
     
-    def __idiv__(this, other):
+    def __idiv__(this, other: Unit | Quantity | float) -> Unit:
         this *= other ** -1
         return this
         
-    def __truediv__(this, other):
-        try:
-            iter(other)
-            return [o / this for o in other]
-        except Exception:
-            pass
+    def __truediv__(this, other: Unit | Quantity | complex) -> Unit | Quantity:
         return this * other ** -1
     
-    def __rtruediv__(this, other):
+    def __rtruediv__(this, other: Unit | Quantity | complex) -> Unit | Quantity:
         return other * this ** -1
     
     
-    def isMultiple(this, other):
+    def isMultiple(this, other: Unit) -> bool:
         return (
-            isinstance(other, Unit) and
             this._kilograms == other._kilograms and
             this._meters == other._meters and
             this._seconds == other._seconds and
@@ -130,32 +129,32 @@ class Unit:
             this._moles == other._moles
         )
         
-    def isSiUnit(this):
+    def isSiUnit(this) -> bool:
         return _isclose(this._multiple, 1.0)
     
-    def isPlanckUnit(this):
+    def isPlanckUnit(this) -> bool:
         return Quantity(1, this).toPlanckUnits()._unit == this
             
-    def __eq__(this, other):
-        if(isinstance(other, Quantity)):
+    def __eq__(this, other: Unit | Quantity | complex) -> bool:
+        if not isinstance(other, Unit):
             return this == Unit(other)
-        return this.isMultiple(other) and _isclose(this._multiple / other._multiple, 1)
+        return this.isMultiple(other) and _isclose(this._multiple, other._multiple)
         
-    def __ne__(this, other):
+    def __ne__(this, other: Unit | Quantity | complex) -> bool:
         return not(this == other)
     
-    def __nonzero__(this):
+    def __nonzero__(this) -> bool:
         return this._multiple != 0
     
     
-    def __neg__(this):
+    def __neg__(this) -> Unit:
         return this * -1
     
-    def __pos__(this):
+    def __pos__(this) -> Unit:
         return this
     
     
-    def __hash__(this):
+    def __hash__(this) -> int:
         return hash((
             this._kilograms,
             this._meters,
@@ -166,75 +165,72 @@ class Unit:
             this._multiple
         ))
         
-    def __int__(this):
+    def __int__(this) -> int:
         return int(float(this))
         
-    def __float__(this):
-        if(not(this.isMultiple(dimensionless))):
+    def __float__(this) -> float:
+        if not(this.isMultiple(dimensionless)):
             raise ValueError("Only units that are multiples of dimensionless can be converted to float or complex, not " + str(this))
-        return this._multiple
+        return float(this._multiple)
     
-    def __repr__(this):
-        return str(this)
-    
-    def __str__(this):
-        if(this == dimensionless):
-            return "1"
-        elif(this._moles == 1 and this != mol):
-            thisTimesNA = str(Unit(this * NA))
+    def __repr__(this) -> str:
+        if this == dimensionless:
+            return "Unit(1)"
+        elif this._moles == 1 and this != mol:
+            thisTimesNA: str = str(Unit(this * NA))
             if(not thisTimesNA[0].isdigit() or thisTimesNA == "1"):
                 return thisTimesNA
-            return str(this / mol) + "·mol"
-        elif(this._moles == -1 and this != mol):
-            thisDividedByNA = str(Unit(this / NA))
-            if(not thisDividedByNA[0].isdigit() or thisDividedByNA == "1"):
+            return str(this / mol) + "*mol"
+        elif this._moles == -1 and this != mol:
+            thisDividedByNA: str = str(Unit(this / NA))
+            if not thisDividedByNA[0].isdigit() or thisDividedByNA == "1":
                 return thisDividedByNA
-            toReturn = str(this * mol)
-            if('/' in toReturn):
-                toReturn += "/mol"
+            result: str = str(this * mol)
+            if('/' in result):
+                result += "/mol"
             else:
-                toReturn += "·mol" + _unicode("SUPERSCRIPT MINUS") + _unicode("SUPERSCRIPT ONE")
-            return toReturn
+                result += "*mol**-1"
+            return result
         elif(this == t):
             return "t"
         elif(this == minute):
             return "min"
         elif(this == minute**-1):
-            return "min" + _unicode("SUPERSCRIPT MINUS") + _unicode("SUPERSCRIPT ONE")
+            return "min**-1"
         elif(this == hour):
             return "hr"
         elif(this == hour**-1):
-            return "hr" + _unicode("SUPERSCRIPT MINUS") + _unicode("SUPERSCRIPT ONE")
+            return "hr**-1"
         elif(this == d):
             return "d"
         elif(this == d**-1):
-            return "d" + _unicode("SUPERSCRIPT MINUS") + _unicode("SUPERSCRIPT ONE")
+            return "d**-1"
         elif(this == w):
             return "w"
         elif(this == w**-1):
-            return "w" + _unicode("SUPERSCRIPT MINUS") + _unicode("SUPERSCRIPT ONE")
+            return "w**-1"
         elif(this == y):
             return "y"
         elif(this == y**-1):
-            return "y" + _unicode("SUPERSCRIPT MINUS") + _unicode("SUPERSCRIPT ONE")
+            return "y**-1"
         elif(this == Å):
             return "Å"
         elif(this == Å**2):
-            return "Å²"
+            return "Å**2"
         elif(this == Å**3):
-            return "Å³"
+            return "Å**3"
         elif(this == au):
             return "au"
         elif(this == au**2):
-            return "au²"
+            return "au**2"
         elif(this == au**3):
-            return "au³"
+            return "au**3"
         elif(this == ly):
             return "ly"
         elif(this == ly**2):
-            return "ly²"
+            return "ly**2"
         elif(this == ly**3):
-            return "ly³"
+            return "ly**3"
         elif(this == ha):
             return "ha"
         elif(this == b):
@@ -242,27 +238,27 @@ class Unit:
         elif(this == inch):
             return "in"
         elif(this == inch**2):
-            return "in²"
+            return "in**2"
         elif(this == inch**3):
-            return "in³"
+            return "in**3"
         elif(this == ft):
             return "ft"
         elif(this == ft**2):
-            return "ft²"
+            return "ft**2"
         elif(this == ft**3):
-            return "ft³"
+            return "ft**3"
         elif(this == yd):
             return "yd"
         elif(this == yd**2):
-            return "yd²"
+            return "yd**2"
         elif(this == yd**3):
-            return "yd³"
+            return "yd**3"
         elif(this == mi):
             return "mi"
         elif(this == mi**2):
-            return "mi²"
+            return "mi**2"
         elif(this == mi**3):
-            return "mi³"
+            return "mi**3"
         elif(this == tsp):
             return "tsp"
         elif(this == tbsp):
@@ -290,22 +286,22 @@ class Unit:
         elif(this == atm):
             return "atm"
         elif(this == degree):
-            return _unicode("DEGREE SIGN")
+            return "deg"
         elif(this == Unit(e)):
-            return "e"
+            return "Unit(e)"
         elif(this == Unit(G)):
-            return "G"
+            return "Unit(G)"
         elif(this == Unit(hbar)):
-            return _unicode("LATIN SMALL LETTER H WITH STROKE")
+            return "Unit(hbar)"
         elif(this == Unit(c)):
-            return "c"
+            return "Unit(c)"
         elif(this == Unit(epsilon0)):
-            return _unicode("GREEK SMALL LETTER EPSILON") + _unicode("SUBSCRIPT ZERO")
+            return "Unit(epsilon0)"
         elif(this == Unit(mu0)):
-            return _unicode("GREEK SMALL LETTER MU") + _unicode("SUBSCRIPT ZERO")
+            return "Unit(mu0)"
         elif(this == Unit(planckEnergy)):
-            return "E" + str(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-        unitToString = dict()
+            return "Unit(E_p)"
+        unitToString: dict[Unit, str] = dict()
         unitToString[m] = "m"
         unitToString[s] = "s"
         unitToString[A] = "A"
@@ -318,17 +314,17 @@ class Unit:
         unitToString[C] = "C"
         unitToString[V] = "V"
         unitToString[F] = "F"
-        unitToString[Ohm] = _unicode("GREEK CAPITAL LETTER OMEGA")
+        unitToString[Ohm] = "Ohm"
         unitToString[S] = "S"
         unitToString[Wb] = "Wb"
         unitToString[T] = "T"
         unitToString[H] = "H"
-        basicUnits = dict(unitToString)
+        basicUnits: dict[Unit, str] = dict(unitToString)
         unitToString[L] = "L"
         unitToString[g] = "g"
         unitToString[eV] = "eV"
         unitToString[Unit(eV / c)] = "eV/c"
-        unitToString[Unit(eV / c**2)] = "eV/c" + _unicode("SUPERSCRIPT TWO")
+        unitToString[Unit(eV / c**2)] = "eV/c**2"
         unitToString[mol] = "mol"
         unitToString[Da] = "Da"
         unitToString[cal] = "cal"
@@ -337,7 +333,7 @@ class Unit:
             unitToString[Unit(1e-1 * unit)] = "d" + unitToString[unit]
             unitToString[Unit(1e-2 * unit)] = "c" + unitToString[unit]
             unitToString[Unit(1e-3 * unit)] = "m" + unitToString[unit]
-            unitToString[Unit(1e-6 * unit)] = _unicode("GREEK SMALL LETTER MU") + unitToString[unit]
+            unitToString[Unit(1e-6 * unit)] = "micro" + unitToString[unit]
             unitToString[Unit(1e-9 * unit)] = "n" + unitToString[unit]
             unitToString[Unit(1e-12 * unit)] = "p" + unitToString[unit]
             unitToString[Unit(1e-15 * unit)] = "f" + unitToString[unit]
@@ -357,361 +353,311 @@ class Unit:
             unitToString[Unit(1e24 * unit)] = "Y" + unitToString[unit]
         basicUnits[kg] = "kg"
         
-        def toSuperscript(string):
-            toReturn = str(string)
-            names = ["ZERO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE"]
-            for i in range(10):
-                toReturn = toReturn.replace(str(i), _unicode("SUPERSCRIPT {}".format(names[i])))
-            toReturn = toReturn.replace('-', _unicode("SUPERSCRIPT MINUS"))
-            toReturn = toReturn.replace('/', _unicode("RIGHT RAISED OMISSION BRACKET"))
-            return toReturn
+        def powerString(unit: str, power: int | Fraction) -> str:
+            if power == 1:
+                return "{}*".format(unit)
+            elif power == 0:
+                return ""
+            elif isinstance(power, Fraction) and power.denominator != 1:
+                return "{}**({})*".format(unit, power)
+            return "{}**{}*".format(unit, power)
         
         try:
-            if(this.isPlanckUnit()):
-                toReturn = ""
-                if(this._kilograms == 1):
-                    toReturn += "m{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-                elif(this._kilograms != 0):
-                    toReturn += "m{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._kilograms))
-                if(this._meters == 1):
-                    toReturn += "l{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-                elif(this._meters != 0):
-                    toReturn += "l{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._meters))
-                if(this._seconds - this._amperes == 1):
-                    toReturn += "t{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-                elif(this._seconds - this._amperes != 0):
-                    toReturn += "t{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._seconds - this._amperes))
-                if(this._amperes == 1):
-                    toReturn += "q{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-                elif(this._amperes != 0):
-                    toReturn += "q{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._amperes))
-                if(this._kelvins == 1):
-                    toReturn += "T{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"))
-                elif(this._kelvins != 0):
-                    toReturn += "T{}{}·".format(_unicode("LATIN SUBSCRIPT SMALL LETTER P"), toSuperscript(this._kelvins))
-                if(this._moles != 0 and toReturn == ""):
-                    return "1"
-                return toReturn[:-1]
+            if this.isPlanckUnit():
+                result: str = powerString("m_p", this._kilograms) + powerString("l_p", this._meters) + powerString("t_p", this._seconds - this._amperes) + powerString("q_p", this._amperes) + powerString("T_p", this._kelvins)
+                if this._moles != 0 and result == "":
+                    return "Unit(1)"
+                return "Unit({})".format(result[:-1])
         except OverflowError:
             pass
             
-        if(this in unitToString.keys()):
+        if this in unitToString.keys():
             return unitToString[this]
         for unit in basicUnits.keys():
-            if(this.isMultiple(unit)):
-                return str(this._multiple) + unitToString[unit]
-        if(this == dimensionless):
-            return "1"
-        if(this.isMultiple(dimensionless)):
-            return str(this._multiple)
+            if this.isMultiple(unit):
+                return "Unit({}*{})".format(this._multiple, unitToString[unit])
+        if this == dimensionless:
+            return "Unit(1)"
+        if this.isMultiple(dimensionless):
+            return "Unit({})".format(this._multiple)
         for unit in unitToString.keys():
             for i in range(-3, 4):
-                if(this == unit ** i):
-                    return unitToString[unit] + toSuperscript(i)
+                if this == unit ** i:
+                    return unitToString[unit] + "**" + str(i)
         for unit in basicUnits.keys():
             for i in range(-3, 4):
                 if(this.isMultiple(unit ** i)):
-                    return str(this._multiple) + unitToString[unit] + toSuperscript(i)
+                    return str(this._multiple) + "*" + unitToString[unit] + "**" + str(i)
         units = [m, s, J, eV, V, K, F, H, W, C]
         for unit1 in units:
             for unit2 in units:
                 for i in [1, 2, 3]:
                     if(this == unit1 * unit2**i):
-                        return unitToString[unit1] + "·" + unitToString[unit2] + ("" if i == 1 else toSuperscript(i))
+                        return unitToString[unit1] + "*" + unitToString[unit2] + ("" if i == 1 else "**" + str(i))
                     elif(this == unit1 / unit2**i):
-                        return unitToString[unit1] + "/" + unitToString[unit2] + ("" if i == 1 else toSuperscript(i))
+                        return unitToString[unit1] + "/" + unitToString[unit2] + ("" if i == 1 else "**" + str(i))
         
-        toReturn = "" if this.isSiUnit() else str(this._multiple)
-        if(this._kilograms == 1):
-            toReturn += "kg·"
-        elif(this._kilograms != 0):
-            toReturn += "kg" + toSuperscript(this._kilograms) + "·"
-        if(this._meters == 1):
-            toReturn += "m·"
-        elif(this._meters != 0):
-            toReturn += "m" + toSuperscript(this._meters) + "·"
-        if(this._seconds == 1):
-            toReturn += "s·"
-        elif(this._seconds != 0):
-            toReturn += "s" + toSuperscript(this._seconds) + "·"
-        if(this._amperes == 1):
-            toReturn += "A·"
-        elif(this._amperes != 0):
-            toReturn += "A" + toSuperscript(this._amperes) + "·"
-        if(this._kelvins == 1):
-            toReturn += "K·"
-        elif(this._kelvins != 0):
-            toReturn += "K" + toSuperscript(this._kelvins) + "·"
-        if(this._moles == 1):
-            toReturn += "mol·"
-        elif(this._moles != 0):
-            toReturn += "mol" + toSuperscript(this._moles) + "·"
-        return toReturn[:-1]
+        result: str = (("" if this.isSiUnit() else "{}*".format(this._multiple))
+            + powerString("kg", this._kilograms)
+            + powerString("m", this._meters)
+            + powerString("s", this._seconds)
+            + powerString("A", this._amperes)
+            + powerString("K", this._kelvins)
+            + powerString("mol", this._moles)
+        )[:-1]
+        if not this.isSiUnit():
+            return "Unit({})".format(result)
+        return result
+    
+    def __str__(this) -> str:
+        def rawSuperscriptToUnicode(rawSuperscript: _re.Match) -> str:
+            result: str = ""
+            for character in rawSuperscript.group(0):
+                match character:
+                    case '-':
+                        result += "\u207b"
+                    case '0':
+                        result += "\u2070"
+                    case '1':
+                        result += "\u00b9"
+                    case '2':
+                        result += "\u00b2"
+                    case '3':
+                        result += "\u00b3"
+                    case '4':
+                        result += "\u2074"
+                    case '5':
+                        result += "\u2075"
+                    case '6':
+                        result += "\u2076"
+                    case '7':
+                        result += "\u2077"
+                    case '8':
+                        result += "\u2078"
+                    case '9':
+                        result += "\u2079"
+            return result
+        
+        result: str = this.__repr__()
+        result = _re.sub(r"^(Unit|Quantity)\((.+)\)$", lambda match: match.group(2), result)
+        result = _re.sub(r"\*\*(\(-?[0-9]+/[0-9]+\)|-?[0-9]+)", rawSuperscriptToUnicode, result)
+        result = _re.sub(r"(?<=[0-9])\*", "", result)
+        result = result.replace("deg", "\u00b0")
+        result = result.replace("hbar", "\u0127")
+        result = result.replace("epsilon0", "\u03b5\u2080")
+        result = result.replace("mu0", "\u03bc\u2080")
+        result = result.replace("Ohm", "\u03a9")
+        result = result.replace("_p", "\u209a")
+        result = result.replace("micro", "\u03bc")
+        result = result.replace("*", "·")
+        return result
 
+@typechecked
 class Quantity:
-    def __init__(this, number=1.0, unit=Unit()):
+    _unit: Unit
+    _number: complex
+    
+    def __init__(this, number: complex | Quantity | Unit = 1.0, unit: Unit | Quantity = Unit()):
         this._unit = Unit(unit)
-        if(isinstance(number, Quantity)):
+        if isinstance(number, Quantity):
             this._unit *= number._unit
             this._number = number._number
-        elif(isinstance(number, Unit)):
+        elif isinstance(number, Unit):
             this._unit = Unit(number)
             this._number = 1
-        elif(isinstance(number, complex)):
-            this._number = number
         else:
-            this._number = float(number)
+            this._number = number
     
     def __copy__(this):
-        toReturn = Quantity
-        toReturn._number = this._number
-        toReturn._unit = this._unit
-        return toReturn
+        result = Quantity()
+        result._number = this._number
+        result._unit = this._unit
+        return result
     
     def __deepcopy__(this):
         return Quantity(this)
         
         
-    def __imul__(this, other):
-        if(isinstance(other, Quantity)):
+    def __imul__(this, other: Quantity | Unit | complex) -> Quantity:
+        if isinstance(other, Quantity):
             this._number *= other._number
             this._unit *= other._unit
-        elif(isinstance(other, Unit)):
+        elif isinstance(other, Unit):
             this._unit *= other
-        elif(isinstance(other, complex)):
-            this._number *= other
         else:
-            this._number *= float(other)
+            this._number *= other
         return this
     
-    def __mul__(this, other):
-        try:
-            iter(other)
-            return [o * this for o in other]
-        except Exception:
-            pass
-        toReturn = Quantity(this)
-        toReturn *= other
-        return toReturn.dimensionlessToFloat()
+    def __mul__(this, other: Quantity | Unit | complex) -> Quantity | complex:
+        result = Quantity(this)
+        result *= other
+        return result.dimensionlessToFloat()
     
-    def __rmul__(this, other):
+    def __rmul__(this, other: Quantity | Unit | complex) -> Quantity | complex:
         return this * other
     
-    def __ipow__(this, other):
+    def __ipow__(this, other: complex | Fraction) -> Quantity:
         this._number **= other
+        if isinstance(this._number, Fraction):
+            this._number = float(this._number)
         this._unit **= other
         return this
         
-    def __pow__(this, other):
-        try:
-            iter(other)
-            return [o ** this for o in other]
-        except Exception:
-            pass
-        toReturn = Quantity(this)
-        toReturn **= other
-        return toReturn.dimensionlessToFloat()
+    def __pow__(this, other: complex | Fraction) -> Quantity | complex:
+        result: Quantity = Quantity(this)
+        result **= other
+        return result.dimensionlessToFloat()
     
-    def __rpow__(this, other):
-        return other ** float(this)
-    
-    def __idiv__(this, other):
+    def __idiv__(this, other: Quantity | Unit | complex) -> Quantity:
         this *= other ** -1
         return this
     
-    def __truediv__(this, other):
+    def __truediv__(this, other: Quantity | Unit | complex) -> Quantity | complex:
         return this * other ** -1
     
-    def __rtruediv__(this, other):
+    def __rtruediv__(this, other: Quantity | Unit | complex) -> Quantity | complex:
         return other * this ** -1
     
-    def __neg__(this):
+    def __neg__(this) -> Quantity | complex:
         return (this * -1).dimensionlessToFloat()
     
-    def __pos__(this):
+    def __pos__(this) -> Quantity | complex:
         return this.dimensionlessToFloat()
     
     
-    def __iadd__(this, other):
-        if(other == 0 and Quantity(other)._unit.isMultiple(dimensionless)):
+    def __iadd__(this, other: Quantity | complex) -> Quantity:
+        if other == 0 and Quantity(other)._unit.isMultiple(dimensionless):
             return this
-        if(this == 0 and Quantity(this)._unit.isMultiple(dimensionless)):
+        if this == 0 and Quantity(this)._unit.isMultiple(dimensionless):
             this._number = other._number
             this._unit = other._unit
-            return other
-        o = Quantity(other)
-        if(not(this._unit.isMultiple(o._unit))):
-            raise ValueError("Cannot add two quantities with different units: {} and {}".format(this._unit, o._unit))
-        this._number += o._number * float(o._unit / this._unit)
+            return this
+        other = Quantity(other)
+        if not this._unit.isMultiple(other._unit):
+            raise ValueError("Cannot add two quantities with different units: {} and {}".format(this._unit, other._unit))
+        this._number += other._number * Quantity(other._unit / this._unit).dimensionlessToFloat()
         return this
         
-    def __add__(this, other):
-        if(isinstance(other, str)):
-            raise TypeError("can only concatenate str (not \"Quantity\") to str")
-        try:
-            iter(other)
-            return [o + this for o in other]
-        except Exception:
-            pass
-        toReturn = Quantity(this)
-        toReturn += other
-        return toReturn.dimensionlessToFloat()
+    def __add__(this, other: Quantity | complex) -> Quantity | complex:
+        result: Quantity = Quantity(this)
+        result += other
+        return result.dimensionlessToFloat()
     
-    def __radd__(this, other):
+    def __radd__(this, other: Quantity | complex) -> Quantity | complex:
         return this + other
     
-    def __isub__(this, other):
+    def __isub__(this, other: Quantity | complex) -> Quantity:
         this += (-other)
         return this
     
-    def __sub__(this, other):
-        try:
-            iter(other)
-            return [o - this for o in other]
-        except Exception:
-            pass
+    def __sub__(this, other: Quantity | complex) -> Quantity | complex:
         return this + (-other)
     
-    def __rsub__(this, other):
+    def __rsub__(this, other: Quantity | complex) -> Quantity | complex:
         return -(this - other)
     
-    def __eq__(this, other):
-        if(other == 0):
+    def __eq__(this, other: Quantity | Unit | complex) -> bool:
+        if other == 0:
             return this._number == 0 or this._unit._multiple == 0
-        elif(isinstance(other, Quantity)):
+        elif isinstance(other, Quantity):
             return this._unit.isMultiple(other._unit) and _isclose((this._number * this._unit._multiple) / (other._number * other._unit._multiple), 1)
-        elif(isinstance(other, Unit)):
+        elif isinstance(other, Unit):
             return this == Quantity(1, other)
-        elif(this._unit.isMultiple(dimensionless) and isinstance(other, complex)):
+        elif this._unit.isMultiple(dimensionless):
             return complex(this) == other
         else:
-            try:
-                return float(this) == float(other)
-            except Exception:
-                return False
+            return False
         
-    def __neq__(this, other):
+    def __neq__(this, other: Quantity | Unit | complex) -> bool:
         return not(this == other)
     
-    def __nonzero__(this):
+    def __nonzero__(this) -> bool:
         return this != 0
     
-    def __lt__(this, other):
-        if(this == 0 and Quantity(this)._unit.isMultiple(dimensionless)):
+    def __lt__(this, other: Quantity | complex) -> bool:
+        if this == 0 and Quantity(this)._unit.isMultiple(dimensionless):
             return 0 <= other._number
-        if(other == 0 and Quantity(other)._unit.isMultiple(dimensionless)):
+        if other == 0 and Quantity(other)._unit.isMultiple(dimensionless):
             return this._number <= 0
-        o = Quantity(other)
-        if(not(this._unit.isMultiple(o._unit))):
-            raise ValueError("Cannot compare two quantities with different units: {} and {}".format(this._unit, o._unit))
-        return this._number * this._unit._multiple < o._number * o._unit._multiple
+        other = Quantity(other)
+        if not this._unit.isMultiple(other._unit):
+            raise ValueError("Cannot compare two quantities with different units: {} and {}".format(this._unit, other._unit))
+        return this._number * this._unit._multiple < other._number * other._unit._multiple
     
-    def __le__(this, other):
+    def __le__(this, other: Quantity | complex) -> bool:
         return this < other or this == other
     
-    def __gt__(this, other):
+    def __gt__(this, other: Quantity | complex) -> bool:
         return not(this <= other)
     
-    def __ge__(this, other):
+    def __ge__(this, other: Quantity | complex) -> bool:
         return not(this < other)
     
-    def __hash__(this):
+    def __hash__(this) -> int:
         return hash((this._number, this._unit))
     
-    def __int__(this):
-        return int(complex(this))
+    def __int__(this) -> int:
+        return int(float(this))
         
-    def __float__(this):
-        return float(this._number) * float(this._unit)
+    def __float__(this) -> float:
+        if complex(this).imag != 0:
+            raise ValueError("Cannot convert complex Quantity to float or int")
+        return complex(this).real
     
-    def __complex__(this):
+    def __complex__(this) -> complex:
         return complex(this._number) * float(this._unit)
     
-    def __repr__(this):
-        return str(this)
-    
-    def __str__(this):
-        if(this._unit == dimensionless):
-            return str(this._number)
-        elif(not(str(this._unit)[0].isdigit()) and str(this._unit)[0] != '.' and str(this._unit)[0] != '-'):
-            return str(this._number) + _re.sub("^[0-9.-]+", "", str(this._unit))
-        elif(this._unit.isMultiple(dimensionless)):
-            return str(this._number * float(this._unit))
+    def __repr__(this) -> str:
+        if this._unit == dimensionless:
+            return "Quantity({})".format(this._number)
+        elif not this._unit.__repr__()[0].isdigit() and this._unit.__repr__()[0] != '.' and this._unit.__repr__()[0] != '-':
+            return this._number.__repr__() + "*" + _re.sub("^[0-9.-]+", "", this._unit.__repr__())
+        elif this._unit.isMultiple(dimensionless):
+            return "Quantity({})".format(this._number * float(this._unit))
         else:
-            return str(this._number * this._unit._multiple) + _re.sub("^[0-9.-]+", "", str(Unit(this._unit / this._unit._multiple)))
+            return (this._number * this._unit._multiple).__repr__() + "*" + _re.sub("^[0-9.-]+", "", Unit(this._unit / this._unit._multiple).__repr__())
+    
+    def __str__(this) -> str:
+        return Unit.__str__(this)
         
-    def toUnit(this, unit):
-        unit = Unit(unit)
+    def toUnit(this, unit: Unit) -> Quantity:
         if(this._unit._kilograms != unit._kilograms or this._unit._meters != unit._meters or this._unit._seconds != unit._seconds or this._unit._amperes != unit._amperes or this._unit._kelvins != unit._kelvins):
             raise ValueError("Cannot convert quantity in unit {} to quantity in unit {}".format(this._unit, unit))
-        toReturn = Quantity(this._number * this._unit._multiple / unit._multiple, unit)
+        result: Quantity = Quantity(this._number * this._unit._multiple / unit._multiple, unit)
         if(this._unit._moles != unit._moles):
-            toReturn *= (NA * mol) ** (this._unit._moles - unit._moles)
-        return toReturn
+            result *= (NA * mol) ** (this._unit._moles - unit._moles)
+        return result
     
-    def toSiUnits(this):
-        unit = Unit(this._unit)
+    def toSiUnits(this) -> Quantity:
+        unit: Unit = Unit(this._unit)
         unit._multiple = 1
         return this.toUnit(unit)
     
-    def toPlanckUnits(this):
-        unit = Unit(planckMass ** this._unit._kilograms * planckLength ** this._unit._meters * planckTime ** this._unit._seconds * (planckCharge / planckTime) ** this._unit._amperes * planckTemperature ** this._unit._kelvins)
+    def toPlanckUnits(this) -> Quantity:
+        unit: Unit = Unit(planckMass ** this._unit._kilograms * planckLength ** this._unit._meters * planckTime ** this._unit._seconds * (planckCharge / planckTime) ** this._unit._amperes * planckTemperature ** this._unit._kelvins)
         return this.toUnit(unit)
     
-    def molesToDimensionless(this):
-        unit = Unit(this._unit)
+    def molesToDimensionless(this) -> Quantity:
+        unit: Unit = Unit(this._unit)
         unit._moles = 0
         return this.toUnit(unit)
     
-    def isDimensionless(this):
+    def isDimensionless(this) -> bool:
         return this._unit.isMultiple(dimensionless)
     
-    def dimensionlessToFloat(this):
+    def dimensionlessToFloat(this) -> Quantity | complex:
         if(this.isDimensionless()):
-            try:
+            if this._number.imag == 0:
                 return float(this)
-            except TypeError:
+            else:
                 return complex(this)
         else:
             return this
     
+    def __abs__(this) -> Quantity:
+        return Quantity(abs(this._number), this._unit)
     
-    def exp(this):
-        return _exp(float(this))
-    
-    def log(this):
-        return _log(float(this))
-    
-    def log10(this):
-        return _log10(float(this))
-    
-    def sin(this):
-        return _sin(float(this))
-    
-    def cos(this):
-        return _cos(float(this))
-    
-    def tan(this):
-        return _tan(float(this))
-    
-    def arcsin(this):
-        return _arcsin(float(this))
-    
-    def arccos(this):
-        return _arccos(float(this))
-    
-    def arctan(this):
-        return _arctan(float(this))
-    
-    def sqrt(this):
-        return this ** _Fraction(1, 2)
-    
-    def __abs__(this):
-        toReturn = Quantity(this)
-        toReturn._number = abs(toReturn._number)
-        return toReturn
-    
-    def __round__(this):
+    def __round__(this) -> Quantity:
         return Quantity(round(this._number), this._unit)
 
 dimensionless = Unit()
@@ -744,14 +690,14 @@ H = Wb / A
 Bq = Hz
 Gy = J / kg
 Sv = Gy
-degree = degrees = Unit(pi / 180)
+deg = degree = degrees = Unit(pi / 180)
 arcmin = Unit(degree / 60)
 arcsec = Unit(degree / 3600)
 radian = dimensionless
 
 cm = Unit(1e-2 * m)
 mm = Unit(1e-3 * m)
-µm = micrometer = Unit(1e-6 * m)
+µm = micrometer = microm = Unit(1e-6 * m)
 nm = Unit(1e-9 * m)
 pm = Unit(1e-12 * m)
 fm = Unit(1e-15 * m)
@@ -784,13 +730,13 @@ mV = Unit(1e-3 * V)
 
 kA = Unit(1e3 * A)
 mA = Unit(1e-3 * A)
-µA = microAmpere = Unit(1e-6 * A)
+µA = microAmpere = microA = Unit(1e-6 * A)
 nA = Unit(1e-9 * A)
 pA = Unit(1e-12 * A)
 fA = Unit(1e-15 * A)
 
 mF = Unit(1e-3 * F)
-µF = microFarad = Unit(1e-6 * F)
+µF = microFarad = microF = Unit(1e-6 * F)
 nF = Unit(1e-9 * F)
 pF = Unit(1e-12 * F)
 
@@ -799,13 +745,13 @@ kOhm = kiloOhm = Unit(1e3 * Ohm)
 MOhm = megaOhm = Unit(1e6 * Ohm)
 
 ms = Unit(1e-3 * s)
-µs = microsecond = Unit(1e-6 * s)
+µs = microsecond = micros = Unit(1e-6 * s)
 ns = Unit(1e-9 * s)
 ps = Unit(1e-12 * s)
 fs = Unit(1e-15 * s)
 
 mg = Unit(1e-6 * kg)
-µg = microgram = Unit(1e-9 * kg)
+µg = microgram = microg = Unit(1e-9 * kg)
 ng = Unit(1e-12 * kg)
 
 kBq = Unit(1e3 * Bq)
@@ -816,7 +762,7 @@ GHz = Unit(1e9 * Hz)
 THz = Unit(1e12 * Hz)
 
 mC = Unit(1e-3 * C)
-µC = microCoulomb = Unit(1e-6 * C)
+µC = microCoulomb = microC = Unit(1e-6 * C)
 nC = Unit(1e-9 * C)
 pC = Unit(1e-12 * C)
 fC = Unit(1e-15 * C)
@@ -866,27 +812,27 @@ zeroCelsius = Quantity(273.15, K)
 atmosphericPressure = Quantity(101325, Pa)
 waterDensity = Quantity(1000, kg/m**3)
 
-planckLength = (hbar * G / c**3) ** _Fraction(1, 2)
-planckMass = (hbar * c / G) ** _Fraction(1, 2)
-planckTime = planckLength / c
-planckCharge = e / fineStructureConstant**(1/2)
-planckEnergy = planckMass * c**2
-planckTemperature = planckEnergy / kB
-planckArea = planckLength ** 2
-planckVolume = planckLength ** 3
-planckMomentum = planckMass * c
-planckForce = planckEnergy / planckLength
+planckLength = l_p = (hbar * G / c**3) ** Fraction(1, 2)
+planckMass = m_p = (hbar * c / G) ** Fraction(1, 2)
+planckTime = t_p = planckLength / c
+planckCharge = q_p = e / fineStructureConstant**(1/2)
+planckEnergy = E_p = planckMass * c**2
+planckTemperature = T_p = planckEnergy / kB
+planckArea = A_p = planckLength ** 2
+planckVolume = V_p = planckLength ** 3
+planckMomentum = p_p = planckMass * c
+planckForce = F_p = planckEnergy / planckLength
 planckPower = planckEnergy / planckTime
-planckDensity = planckMass / planckVolume
+planckDensity = rho_p = planckMass / planckVolume
 planckPressure = planckForce / planckArea
 planckVoltage = planckEnergy/ planckCharge
-planckAcceleration = c / planckTime
+planckAcceleration = a_p = c / planckTime
 
 minute = Unit(60 * s)
 hr = hour = Unit(60 * minute)
 d = day = Unit(24 * hour)
 w = week = Unit(7 * d)
-y = year = Unit(365.2422 * d)
+y = year = yr = Unit(365.2422 * d)
 Å = Angstrom = Unit(1e-10 * m)
 au = AU = Unit(earthSunDistance)
 ly = Unit(9.4605e15 * m)
@@ -900,7 +846,7 @@ ha = Unit(1e4 * m**2)
 
 b = Unit((1e-14 * m)**2)
 mb = Unit(1e-3 * b)
-µb = microbarn = Unit(1e-6 * b)
+µb = microbarn = microb = Unit(1e-6 * b)
 nb = Unit(1e-9 * b)
 pb = Unit(1e-12 * b)
 fb = Unit(1e-15 * b)
@@ -925,13 +871,13 @@ atm = Unit(atmosphericPressure)
 
 Ci = Unit(3.7e10 * Bq)
 mCi = Unit(1e-3 * Ci)
-µCi = microCurie = Unit(1e-6 * Ci)
+µCi = microCurie = microCi = Unit(1e-6 * Ci)
 nCi = Unit(1e-9 * Ci)
 pCi = Unit(1e-12 * Ci)
 
 Jy = Unit(1e-26 * W * m**-2 * Hz)
 mJy = Unit(1e-3 * Jy)
-µJy = microJansky = Unit(1e-6 * Jy)
+µJy = microJansky = microJy = Unit(1e-6 * Jy)
 nJy = Unit(1e-9 * Jy)
 pJy = Unit(1e-12 * Jy)
 kJy = Unit(1e3 * Jy)
