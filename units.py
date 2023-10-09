@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# units.py version 2.0.0 by Gustav Lindberg
+# units.py version 2.0.1 by Gustav Lindberg
 # https://github.com/GustavLindberg99/Units.py
 # https://pypi.org/project/unitspy/
 
@@ -17,7 +17,8 @@ def _isclose(a: complex, b: complex) -> bool:
 class Quantity:
     pass
 
-@typechecked
+#Don't add @typechecked to stuff that doesn't need it, otherwise it's bad for performance
+
 class Unit:
     _kilograms: int | Fraction
     _meters: int | Fraction
@@ -27,6 +28,7 @@ class Unit:
     _moles: int | Fraction
     _multiple: float
     
+    @typechecked
     def __init__(this, other: Unit | Quantity | float | None = None):
         if isinstance(other, Unit):
             this._kilograms = other._kilograms
@@ -57,8 +59,9 @@ class Unit:
     
     def __deepcopy__(this):
         return Unit(this)
-        
-        
+    
+    
+    @typechecked
     def __imul__(this, other: Unit | Quantity | float) -> Unit:
         if isinstance(other, Quantity):
             other = Unit(other)
@@ -73,8 +76,7 @@ class Unit:
         else:
             this._multiple *= other
         return this
-            
-            
+    
     def __mul__(this, other: Unit | Quantity | complex) -> Unit | Quantity:
         result: Quantity = Quantity(this)
         result *= other
@@ -89,6 +91,7 @@ class Unit:
         return this * other
     
     
+    @typechecked
     def __ipow__(this, other: float | Fraction) -> Unit:
         other = Fraction(other)
         this._kilograms *= other
@@ -100,7 +103,6 @@ class Unit:
     
         this._multiple = float(this._multiple ** other)
         return this
-        
         
     def __pow__(this, other: float | Fraction) -> Unit:
         result: Unit = Unit(this)
@@ -119,6 +121,7 @@ class Unit:
         return other * this ** -1
     
     
+    @typechecked
     def isMultiple(this, other: Unit) -> bool:
         return (
             this._kilograms == other._kilograms and
@@ -135,6 +138,8 @@ class Unit:
     def isPlanckUnit(this) -> bool:
         return Quantity(1, this).toPlanckUnits()._unit == this
             
+    
+    @typechecked
     def __eq__(this, other: Unit | Quantity | complex) -> bool:
         if not isinstance(other, Unit):
             return this == Unit(other)
@@ -439,7 +444,7 @@ class Unit:
             return result
         
         result: str = this.__repr__()
-        result = _re.sub(r"^(Unit|Quantity)\((.+)\)$", lambda match: match.group(2), result)
+        result = _re.sub(r"(Unit|Quantity)\((.+)\)$", lambda match: match.group(2), result)
         result = _re.sub(r"\*\*(\(-?[0-9]+/[0-9]+\)|-?[0-9]+)", rawSuperscriptToUnicode, result)
         result = _re.sub(r"(?<=[0-9])\*", "", result)
         result = result.replace("deg", "\u00b0")
@@ -452,11 +457,12 @@ class Unit:
         result = result.replace("*", "·")
         return result
 
-@typechecked
-class Quantity:
+#Inherit from the dummy class defined above so that it doesn't cause errors of the type "object of type Quantity is not an instance of Quantity"
+class Quantity(Quantity):
     _unit: Unit
     _number: complex
     
+    @typechecked
     def __init__(this, number: complex | Quantity | Unit = 1.0, unit: Unit | Quantity = Unit()):
         this._unit = Unit(unit)
         if isinstance(number, Quantity):
@@ -468,6 +474,7 @@ class Quantity:
         else:
             this._number = number
     
+    
     def __copy__(this):
         result = Quantity()
         result._number = this._number
@@ -478,6 +485,7 @@ class Quantity:
         return Quantity(this)
         
         
+    @typechecked
     def __imul__(this, other: Quantity | Unit | complex) -> Quantity:
         if isinstance(other, Quantity):
             this._number *= other._number
@@ -496,6 +504,8 @@ class Quantity:
     def __rmul__(this, other: Quantity | Unit | complex) -> Quantity | complex:
         return this * other
     
+    
+    @typechecked
     def __ipow__(this, other: complex | Fraction) -> Quantity:
         this._number **= other
         if isinstance(this._number, Fraction):
@@ -508,6 +518,7 @@ class Quantity:
         result **= other
         return result.dimensionlessToFloat()
     
+    
     def __idiv__(this, other: Quantity | Unit | complex) -> Quantity:
         this *= other ** -1
         return this
@@ -518,6 +529,7 @@ class Quantity:
     def __rtruediv__(this, other: Quantity | Unit | complex) -> Quantity | complex:
         return other * this ** -1
     
+    
     def __neg__(this) -> Quantity | complex:
         return (this * -1).dimensionlessToFloat()
     
@@ -525,6 +537,7 @@ class Quantity:
         return this.dimensionlessToFloat()
     
     
+    @typechecked
     def __iadd__(this, other: Quantity | complex) -> Quantity:
         if other == 0 and Quantity(other)._unit.isMultiple(dimensionless):
             return this
@@ -546,6 +559,7 @@ class Quantity:
     def __radd__(this, other: Quantity | complex) -> Quantity | complex:
         return this + other
     
+    
     def __isub__(this, other: Quantity | complex) -> Quantity:
         this += (-other)
         return this
@@ -556,6 +570,8 @@ class Quantity:
     def __rsub__(this, other: Quantity | complex) -> Quantity | complex:
         return -(this - other)
     
+    
+    @typechecked
     def __eq__(this, other: Quantity | Unit | complex) -> bool:
         if other == 0:
             return this._number == 0 or this._unit._multiple == 0
@@ -574,6 +590,8 @@ class Quantity:
     def __nonzero__(this) -> bool:
         return this != 0
     
+    
+    @typechecked
     def __lt__(this, other: Quantity | complex) -> bool:
         if this == 0 and Quantity(this)._unit.isMultiple(dimensionless):
             return 0 <= other._number
@@ -593,6 +611,7 @@ class Quantity:
     def __ge__(this, other: Quantity | complex) -> bool:
         return not(this < other)
     
+    
     def __hash__(this) -> int:
         return hash((this._number, this._unit))
     
@@ -607,6 +626,7 @@ class Quantity:
     def __complex__(this) -> complex:
         return complex(this._number) * float(this._unit)
     
+    
     def __repr__(this) -> str:
         if this._unit == dimensionless:
             return "Quantity({})".format(this._number)
@@ -620,6 +640,8 @@ class Quantity:
     def __str__(this) -> str:
         return Unit.__str__(this)
         
+    
+    @typechecked
     def toUnit(this, unit: Unit) -> Quantity:
         if(this._unit._kilograms != unit._kilograms or this._unit._meters != unit._meters or this._unit._seconds != unit._seconds or this._unit._amperes != unit._amperes or this._unit._kelvins != unit._kelvins):
             raise ValueError("Cannot convert quantity in unit {} to quantity in unit {}".format(this._unit, unit))
